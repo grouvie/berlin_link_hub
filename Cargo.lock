@@ -103,6 +103,7 @@ name = "berlin_link_hub"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "serde",
  "tokio",
  "tower-http",
  "tracing",
