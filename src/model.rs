@@ -1,4 +1,5 @@
 mod greeting;
+mod link;
 
 #[derive(Clone)]
 pub(crate) struct ModelController;
