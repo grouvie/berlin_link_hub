@@ -1,28 +1,31 @@
 use axum::{
     http::{Method, Uri},
     middleware,
-    response::{IntoResponse, Response},
-    Json, Router,
+    response::{IntoResponse, Redirect, Response},
+    Router,
 };
 use ctx::Ctx;
 use dotenv::dotenv;
-use error::AppError;
+use error::{AppError, SystemResult};
 use log::log_request;
 use model::ModelController;
 use serde_json::json;
+use tokio::net;
 use tower_cookies::CookieManagerLayer;
 use tracing::{subscriber::set_global_default, Level};
 use tracing_subscriber::FmtSubscriber;
 use uuid::Uuid;
+use web::get_origin;
 
 mod ctx;
+mod database;
 mod error;
 mod log;
 mod model;
 mod web;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> SystemResult<()> {
     dotenv().ok();
 
     let subscriber = FmtSubscriber::builder()
@@ -31,9 +34,14 @@ async fn main() {
 
     set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let mc = ModelController::new();
+    let mc = ModelController::new().await?;
 
-    let routes_public = Router::new().merge(web::routes_user::routes(mc.clone()));
+    mc.migrate().await;
+
+    let routes_public = Router::new()
+        .merge(web::routes_home::routes(mc.clone()))
+        .merge(web::routes_auth::routes(mc.clone()))
+        .merge(web::routes_user::routes(&mc.clone()));
 
     let routes_private = Router::new()
         .merge(web::routes_link::routes(mc.clone()))
@@ -41,7 +49,7 @@ async fn main() {
 
     let routes_all = Router::new()
         .merge(routes_public)
-        .nest("/api", routes_private)
+        .merge(routes_private)
         .layer(middleware::map_response(main_response_mapper))
         .layer(middleware::from_fn_with_state(
             mc.clone(),
@@ -49,8 +57,10 @@ async fn main() {
         ))
         .layer(CookieManagerLayer::new());
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, routes_all).await.unwrap();
+    let listener = net::TcpListener::bind("0.0.0.0:3000").await?;
+    axum::serve(listener, routes_all).await?;
+
+    Ok(())
 }
 
 async fn main_response_mapper(
@@ -69,7 +79,7 @@ async fn main_response_mapper(
     // -- If client error, build the new response.
     let error_response = client_status_error
         .as_ref()
-        .map(|(status_code, client_error)| {
+        .map(|(_status_code, client_error)| {
             let client_error_body = json!({
                 "error": {
                     "type": client_error.as_ref(),
@@ -79,8 +89,10 @@ async fn main_response_mapper(
 
             tracing::info!("    ->> client_error_body: {client_error_body}");
 
+            let redirect_url = format!("{}/", get_origin());
+
             // Build the new response from the client_error_body
-            (*status_code, Json(client_error_body)).into_response()
+            Redirect::to(&redirect_url).into_response()
         });
 
     // Build and log the server log line.

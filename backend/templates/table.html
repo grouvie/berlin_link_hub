@@ -1,0 +1,38 @@
+<table class="table table-xs table-zebra table-bordered w-full shadow-lg">
+  <thead class="text-white">
+    <tr>
+      <th class="px-4 py-2 text-lg max-w-xs">Domain</th>
+      <th class="px-4 py-2 text-lg max-w-xl">Title</th>
+      <th class="px-4 py-2 text-lg max-w-2xl">Url</th>
+      <th class="px-4 py-2 text-lg max-w-3xl">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for uri in uris %}
+    <tr class="hover:bg-base-100">
+      <td class="px-4 py-2 max-w-xs">{{ uri.url_host }}</td>
+      <td class="px-4 py-2 max-w-xl break-words whitespace-normal">
+        <!-- prettier-ignore -->
+        {% if uri.title.is_some() %}
+            {{ uri.title.as_ref().unwrap() }}
+        {% endif %}
+      </td>
+      <td class="px-4 py-2 max-w-2xl break-words whitespace-normal">
+        <a href="{{ uri.url }}" class="text-blue-500 hover:underline">
+          {{ uri.url }}
+        </a>
+      </td>
+      <td class="px-4 py-2 max-w-3xl break-words whitespace-normal">
+        <!-- prettier-ignore -->
+        {% if uri.auto_description.is_some() %}
+          {{ uri.auto_description.as_ref().unwrap() }}
+        {% else %}
+          {% if uri.manual_description.is_some() %}
+            {{ uri.manual_description.as_ref().unwrap() }}
+          {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

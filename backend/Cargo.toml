@@ -1,0 +1,48 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+argon2.workspace = true
+
+axum = { workspace = true, features = ["multipart"] }
+
+chrono = { workspace = true, features = ["serde"] }
+
+dotenv.workspace = true
+
+lazy-regex.workspace = true
+
+rinja.workspace = true
+
+rinja_axum.workspace = true
+
+serde = { workspace = true, features = ["serde_derive"] }
+
+serde_json.workspace = true
+
+serde_with.workspace = true
+
+sqlx = { workspace = true, features = ["runtime-tokio", "postgres", "chrono"] }
+
+strum_macros.workspace = true
+
+thiserror.workspace = true
+
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+tower-cookies = { workspace = true, features = [
+    "axum-core",
+    "private",
+    "signed",
+] }
+
+tracing.workspace = true
+
+tracing-subscriber.workspace = true
+
+uuid = { workspace = true, features = ["v4", "fast-rng"] }
+
+[lints]
+workspace = true

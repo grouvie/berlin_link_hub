@@ -1,0 +1,65 @@
+<!-- prettier-ignore -->
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="hero min-h-screen bg-base-200 pb-16">
+  <div class="hero-content flex-col lg:flex-row-reverse">
+    <div class="text-center lg:text-left">
+      <h1 class="text-5xl font-bold">Login now!</h1>
+      <p class="py-6">Enter your credentials to access the Berlin Links app.</p>
+    </div>
+    <div>
+      <div class="card flex-shrink-0 w-full max-w-sm shadow-2xl bg-base-100">
+        <div class="card-body">
+          <form hx-post="/api/login" hx-target="this" hx-swap="none">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Email</span>
+              </label>
+              <input
+                type="text"
+                name="email"
+                placeholder="email"
+                class="input input-bordered"
+              />
+            </div>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Password</span>
+              </label>
+              <input
+                type="password"
+                name="password"
+                placeholder="password"
+                class="input input-bordered"
+              />
+              <label class="label">
+                <a href="#" class="label-text-alt link link-hover"
+                  >Forgot password?</a
+                >
+              </label>
+            </div>
+            <div class="form-control mt-6">
+              <button class="btn btn-primary">Login</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div
+        id="error-message"
+        class="hidden alert alert-error mt-4 w-full max-w-sm"
+      ></div>
+    </div>
+  </div>
+</div>
+<script>
+  document.body.addEventListener("showError", function (evt) {
+    const errorDiv = document.getElementById("error-message");
+    errorDiv.textContent = evt.detail.message || "An error occurred.";
+    errorDiv.classList.remove("hidden");
+    setTimeout(() => {
+      errorDiv.classList.add("hidden");
+    }, 3000);
+  });
+</script>
+{% endblock %}

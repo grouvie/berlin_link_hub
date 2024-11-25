@@ -110,6 +110,16 @@ pub(crate) fn set_private_cookie(cookies: &Cookies, token: String) {
     private_cookies.add(cookie);
 }
 
+pub(crate) fn remove_private_cookie(cookies: &Cookies) {
+    let key = &Key::from(get_secret_key().as_bytes());
+
+    let private_cookies = cookies.private(key);
+    let mut cookie = Cookie::new(AUTH_TOKEN, "");
+    cookie.set_path("/");
+
+    private_cookies.remove(cookie);
+}
+
 fn timestamp_is_valid(exp: &str) -> AppResult<()> {
     // Parse the timestamp string as an integer
     let Ok(timestamp) = exp.parse::<i64>() else {

@@ -1,0 +1,34 @@
+[package]
+name = "harvester"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = { workspace = true, features = ["serde"] }
+
+dotenv.workspace = true
+
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+futures.workspace = true
+
+reqwest.workspace = true
+
+serde = { workspace = true, features = ["serde_derive"] }
+
+serde_json.workspace = true
+
+scraper.workspace = true
+
+thiserror.workspace = true
+
+tracing.workspace = true
+
+tracing-subscriber.workspace = true
+
+sqlx = { workspace = true, features = ["runtime-tokio", "postgres", "chrono"] }
+
+url.workspace = true
+
+[lints]
+workspace = true
