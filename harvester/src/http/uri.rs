@@ -15,17 +15,26 @@ impl HttpClient {
         self,
         data: Vec<ParsedMeetupURIData>,
     ) -> SystemResult<Vec<InsertURIRecord>> {
-        //let semaphore = Arc::new(Semaphore::new(50));
+        tracing::debug!(count = data.len(), "Starting to fetch metadata for URIs");
+
         let mut tasks = Vec::new();
 
         for entry in data {
-            //let permit = semaphore.clone().acquire_owned().await.unwrap();
-
-            let builder = self.builder(entry.uri.clone());
+            let uri = entry.uri.clone();
+            let builder = self.builder(uri.clone());
 
             tasks.push(tokio::spawn(async move {
-                //drop(permit);
-                Ok::<_, SystemError>((entry, HttpClient::get(builder).await?))
+                let result = HttpClient::get(builder).await;
+                match result {
+                    Ok(metadata) => {
+                        tracing::debug!(uri = %uri, "Successfully fetched metadata for URI");
+                        Ok::<_, SystemError>((entry, metadata))
+                    }
+                    Err(error) => {
+                        tracing::error!(error = ?error, uri = %uri, "Failed to fetch metadata for URI");
+                        Ok::<_, SystemError>((entry, None))
+                    }
+                }
             }));
         }
 
@@ -48,9 +57,18 @@ impl HttpClient {
                         .as_ref()
                         .and_then(|metadata| metadata.description.clone()),
                 }),
-                _ => None,
+                Ok(Err(system_error)) => {
+                    tracing::error!(error = ?system_error, "Failed to fetch page metadata");
+                    None
+                }
+                Err(join_error) => {
+                    tracing::error!(error = ?join_error, "Task failed to complete");
+                    None
+                }
             })
-            .collect();
+            .collect::<Vec<_>>();
+
+        tracing::info!(count = insert_links.len(), "Finished processing URIs");
 
         Ok(insert_links)
     }

@@ -20,7 +20,7 @@ async fn main() -> SystemResult<()> {
     dotenv().ok();
 
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
+        .with_max_level(Level::INFO)
         .finish();
 
     subscriber::set_global_default(subscriber).expect("setting default subscriber failed");

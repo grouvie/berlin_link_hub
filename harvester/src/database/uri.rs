@@ -24,6 +24,8 @@ impl DatabaseClient {
 
         listener.listen("meetup_uris_change").await?;
 
+        tracing::info!("Started listening on 'meetup_uris_change' for notifications.");
+
         let mut stream = listener.into_stream();
         tokio::spawn(async move {
             while let Ok(Some(notification)) = stream.try_next().await {
@@ -31,11 +33,11 @@ impl DatabaseClient {
                 match serde_json::from_str::<MeetupUriUpdate>(payload) {
                     Ok(status_update) => {
                         if let Err(error) = sender.send(status_update).await {
-                            tracing::error!("Sending failed: {error}");
+                            tracing::error!(%error, "Failed to send MeetupUriUpdate.");
                         }
                     }
                     Err(error) => {
-                        tracing::error!("Failed to parse JSON notification: {error}");
+                        tracing::error!(%error, payload, "Failed to deserialize JSON payload.");
                     }
                 }
             }
@@ -56,11 +58,11 @@ impl DatabaseClient {
     }
     pub(crate) async fn insert_uri_records(
         &self,
-        records: Vec<InsertURIRecord>,
+        records: &Vec<InsertURIRecord>,
     ) -> SystemResult<()> {
         let mut transaction = self.pool.begin().await?;
 
-        let statement = "
+        let insert_statement = "
             INSERT INTO public.uri_records (
                 meetup_id, url, url_scheme, url_host, url_path, status, title, auto_description
             )
@@ -68,18 +70,31 @@ impl DatabaseClient {
         ";
 
         for record in records {
-            sqlx::query(statement)
+            sqlx::query(insert_statement)
                 .bind(record.meetup_id)
-                .bind(record.url)
-                .bind(record.url_scheme)
-                .bind(record.url_host)
-                .bind(record.url_path)
+                .bind(&record.url)
+                .bind(&record.url_scheme)
+                .bind(&record.url_host)
+                .bind(&record.url_path)
                 .bind(record.status.unwrap_or(false))
-                .bind(record.title)
-                .bind(record.auto_description)
+                .bind(&record.title)
+                .bind(&record.auto_description)
                 .execute(&mut *transaction)
                 .await?;
         }
+
+        let meetup_ids: Vec<i32> = records.iter().map(|record| record.meetup_id).collect();
+
+        let update_statement = "
+            UPDATE public.meetup_uris
+            SET handled = true
+            WHERE id = ANY($1);
+        ";
+
+        sqlx::query(update_statement)
+            .bind(&meetup_ids)
+            .execute(&mut *transaction)
+            .await?;
 
         transaction.commit().await?;
 

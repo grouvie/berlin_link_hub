@@ -1,8 +1,11 @@
+use std::time::Duration;
+
 use reqwest::{
     header::{HeaderMap, HeaderValue, USER_AGENT},
     RequestBuilder,
 };
 use scraper::{Html, Selector};
+use tokio::time::sleep;
 use uri::PageMetadata;
 use url::Url;
 
@@ -34,13 +37,38 @@ impl HttpClient {
         self.client.get(url).headers(self.headers.clone())
     }
     pub(crate) async fn get(builder: RequestBuilder) -> SystemResult<Option<PageMetadata>> {
-        let response = builder.send().await?;
+        const MAX_RETRIES: usize = 3;
+        const RETRY_DELAY_MS: u64 = 500;
 
-        let body = response.text().await?;
+        let mut attempt = 0;
 
-        let html = Html::parse_document(&body);
-
-        Self::parse_html(&html)
+        loop {
+            match builder
+                .try_clone()
+                .ok_or(SystemError::RetryError)?
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    let body = response.text().await?;
+                    let html = Html::parse_document(&body);
+                    return Self::parse_html(&html);
+                }
+                Err(error) if attempt < MAX_RETRIES => {
+                    tracing::warn!(
+                        error = ?error,
+                        attempt,
+                        "Request failed, retrying..."
+                    );
+                    attempt += 1;
+                    sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
+                }
+                Err(error) => {
+                    tracing::error!(error = ?error, "Request failed after retries");
+                    return Err(SystemError::RequestError(error.to_string()));
+                }
+            }
+        }
     }
 
     fn parse_html(html: &Html) -> SystemResult<Option<PageMetadata>> {

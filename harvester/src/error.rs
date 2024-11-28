@@ -16,6 +16,10 @@ pub(crate) enum SystemError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
 
+    RetryError,
+
+    RequestError(String),
+
     Selector(String),
 
     #[error(transparent)]
@@ -29,6 +33,8 @@ impl fmt::Display for SystemError {
             Self::Join(msg) => write!(formatter, "JoinError: {msg}"),
             Self::Sqlx(msg) => write!(formatter, "SqlxError: {msg}"),
             Self::Reqwest(msg) => write!(formatter, "ReqwestError: {msg}"),
+            Self::RetryError => write!(formatter, "ReqwestError"),
+            Self::RequestError(msg) => write!(formatter, "RequestError; {msg}"),
             Self::Selector(msg) => write!(formatter, "SelectorError: {msg}"),
             Self::UrlParse(msg) => write!(formatter, "UrlParseError: {msg}"),
         }

@@ -60,22 +60,58 @@ impl ModelController {
         Ok(())
     }
     pub(crate) async fn process_new_uris(&self) -> SystemResult<()> {
+        tracing::info!("Starting to process new URIs");
+
         let database_client = DatabaseClient::new(self.pool.clone());
 
-        let meetup_uri_data = database_client.get_meetup_uri_data().await?;
+        let meetup_uri_data = match database_client.get_meetup_uri_data().await {
+            Ok(data) => {
+                tracing::info!(count = data.len(), "Fetched URIs from the database");
+                data
+            }
+            Err(error) => {
+                tracing::error!(error = ?error, "Failed to fetch URIs from the database");
+                return Err(error);
+            }
+        };
 
-        let parsed_meetup_uri_data = meetup_uri_data
+        let parsed_meetup_uri_data = match meetup_uri_data
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<SystemResult<Vec<ParsedMeetupURIData>>>()?;
+            .collect::<SystemResult<Vec<ParsedMeetupURIData>>>()
+        {
+            Ok(data) => data,
+            Err(error) => {
+                tracing::error!(error = ?error, "Failed to parse meetup URI data");
+                return Err(error);
+            }
+        };
 
         let http_client = HttpClient::new();
 
-        let uri_records = http_client
+        let uri_records = match http_client
             .get_insert_links_from_links(parsed_meetup_uri_data)
-            .await?;
+            .await
+        {
+            Ok(records) => {
+                tracing::info!(count = records.len(), "Fetched metadata for URIs");
+                records
+            }
+            Err(error) => {
+                tracing::error!(error = ?error, "Failed to fetch metadata for URIs");
+                return Err(error);
+            }
+        };
 
-        database_client.insert_uri_records(uri_records).await?;
+        if let Err(error) = database_client.insert_uri_records(&uri_records).await {
+            tracing::error!(error = ?error, "Failed to insert URI records into the database");
+            return Err(error);
+        }
+
+        tracing::info!(
+            count = uri_records.len(),
+            "Successfully inserted new URI records"
+        );
 
         Ok(())
     }
